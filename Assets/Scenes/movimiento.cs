@@ -13,12 +13,17 @@ public class movimiento : MonoBehaviour
     private bool isJumping = false;
     private Rigidbody rb;
     private Animator animator;
+    private AudioSource audioSource;
 
     void Start()
     {
+        Application.targetFrameRate = 60;
+
+
         rb = GetComponent<Rigidbody>();
         animator = GetComponent<Animator>();
         animator.SetBool("EstaCorriendo", true);
+        audioSource = GetComponent<AudioSource>();
     }
 
     void Update()
@@ -56,6 +61,11 @@ public class movimiento : MonoBehaviour
         //Reiniciar velocidad
         rb.velocity = new Vector3(0f, 0f, 0f);
         rb.AddForce(Vector3.up * jumpForce * multiplier, ForceMode.Impulse);
+
+        if (audioSource != null && !audioSource.isPlaying)
+        {
+            audioSource.Play();
+        }
     }
 
     void CheckIfFalling()
