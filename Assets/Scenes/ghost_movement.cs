@@ -11,6 +11,7 @@ public class ghost_movement : MonoBehaviour
     private Animator animator; 
     public GameObject player; // Referencia al personaje principal
 
+    private AudioSource hurtSound;
     private bool isAttacking = false; // Control para evitar múltiples ataques
     private bool isActivated = false; //Determina si fantasma se mueve
     private Vector3 attackTargetPosition; // Posición final del ataque
@@ -63,7 +64,9 @@ public class ghost_movement : MonoBehaviour
         animator.SetTrigger("Attack"); // Cambiar a animación de ataque
         Animator playerAnimator = player.GetComponent<Animator>();
         movimiento playerMovement = enemy.GetComponent<movimiento>();
-        
+        AudioSource playerSound = player.GetComponents<AudioSource>()[1];
+
+
         //Para movimiento de personaje
         playerMovement.isPaused = true;
         playerMovement.moveSpeed = 0f;
@@ -94,6 +97,10 @@ public class ghost_movement : MonoBehaviour
             if (playerAnimator != null)
             {
                 playerAnimator.SetTrigger("Lose");
+                if (playerSound != null && !playerSound.isPlaying)
+                {
+                    playerSound.Play();
+                }
             }
 
 

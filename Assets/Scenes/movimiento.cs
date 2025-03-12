@@ -13,14 +13,18 @@ public class movimiento : MonoBehaviour
     public float stepBackDistance = 1f; // Distancia que se moverá hacia atrás
     public float stepBackSpeed = 1f; // Velocidad al retroceder
     public CinemachineVirtualCamera virtualCamera;
+    public CinemachineVirtualCamera virtualCamera2;
+    public GameObject eagleView;
 
 
     private bool isJumping = false;
     private Rigidbody rb;
     private Animator animator;
-    private AudioSource audioSource;
+    private AudioSource[] audioSources;
     public bool isPaused = false;
     private CinemachineFramingTransposer transposer;
+    private AudioSource jumpSound;
+    private AudioSource scaredSound;
 
     void Start()
     {
@@ -30,7 +34,11 @@ public class movimiento : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         animator = GetComponent<Animator>();
         animator.SetBool("EstaCorriendo", true);
-        audioSource = GetComponent<AudioSource>();
+        audioSources = GetComponents<AudioSource>();
+        jumpSound = audioSources[0];
+        scaredSound = audioSources[2];
+
+
         if (virtualCamera != null)
         {
             var framingTransposer = virtualCamera.GetCinemachineComponent<CinemachineFramingTransposer>();
@@ -80,9 +88,9 @@ public class movimiento : MonoBehaviour
         rb.velocity = new Vector3(0f, 0f, 0f);
         rb.AddForce(Vector3.up * jumpForce * multiplier, ForceMode.Impulse);
 
-        if (audioSource != null && !audioSource.isPlaying)
+        if (jumpSound != null && !jumpSound.isPlaying)
         {
-            audioSource.Play();
+            jumpSound.Play();
         }
     }
 
@@ -142,23 +150,29 @@ public class movimiento : MonoBehaviour
     }
 
     IEnumerator ChangeCamara() {
-        if (transposer != null)
-        {
-            //Centrar la camara
-            float originalOffsetZ = transposer.m_TrackedObjectOffset.z; 
-            float targetOffsetZ = 0;
+        //if (transposer != null)
+        //{
+        //    //Centrar la camara
+        //    float originalOffsetZ = transposer.m_TrackedObjectOffset.z; 
+        //    float targetOffsetZ = 0;
 
-            float elapsedTime = 0f;
-            float duration = 1f;  // Duración de la transición
+        //    float elapsedTime = 0f;
+        //    float duration = 1f;  // Duración de la transición
 
-            while (elapsedTime < duration)
-            {
-                transposer.m_TrackedObjectOffset.z = Mathf.Lerp(originalOffsetZ, targetOffsetZ, elapsedTime / duration);
-                elapsedTime += Time.deltaTime;
-                yield return null;
-            }
-            transposer.m_TrackedObjectOffset.z = targetOffsetZ;
-        }
+        //    while (elapsedTime < duration)
+        //    {
+        //        transposer.m_TrackedObjectOffset.z = Mathf.Lerp(originalOffsetZ, targetOffsetZ, elapsedTime / duration);
+        //        elapsedTime += Time.deltaTime;
+        //        yield return null;
+        //    }
+        //    transposer.m_TrackedObjectOffset.z = targetOffsetZ;
+        //}
+        //eagleView.SetActive(true);
+
+        virtualCamera.Priority = 5;
+        virtualCamera2.Priority = 10;
+
+        yield return null;
     }
 
     IEnumerator StopAndResume()
@@ -170,6 +184,12 @@ public class movimiento : MonoBehaviour
         animator.SetBool("EstaCaminando", true);
         yield return new WaitForSeconds(3f);
         //Se detiene
+
+        if (scaredSound != null && !scaredSound.isPlaying)
+        {
+            scaredSound.Play();
+        }
+
         isPaused = true;
         animator.SetBool("EstaCaminando", false);
         yield return new WaitForSeconds(1f);
