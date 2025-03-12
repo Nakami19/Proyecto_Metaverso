@@ -1,19 +1,26 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Cinemachine;
 
 public class movimiento : MonoBehaviour
 {
-    public float moveSpeed = 2f;
-    public float jumpForce = 5f;
+    public float moveSpeed = 2f; //Velocidad a la que corre
+    public float jumpForce = 5f; //fuerza de salto
     public float raycastDistance = 1.5f; //Distancia a un objeto enfrente
     public float groundCheckDistance = 0.3f; //Distancia a la que detecta el suelo
-    public float enemyJumpMultiplier = 1.5f;
+    public float enemyJumpMultiplier = 1.5f; //Salto mas alto en caso de enemigo
+    public float stepBackDistance = 1f; // Distancia que se moverá hacia atrás
+    public float stepBackSpeed = 1f; // Velocidad al retroceder
+    public CinemachineVirtualCamera virtualCamera;
+
 
     private bool isJumping = false;
     private Rigidbody rb;
     private Animator animator;
     private AudioSource audioSource;
+    public bool isPaused = false;
+    private CinemachineFramingTransposer transposer;
 
     void Start()
     {
@@ -24,11 +31,22 @@ public class movimiento : MonoBehaviour
         animator = GetComponent<Animator>();
         animator.SetBool("EstaCorriendo", true);
         audioSource = GetComponent<AudioSource>();
+        if (virtualCamera != null)
+        {
+            var framingTransposer = virtualCamera.GetCinemachineComponent<CinemachineFramingTransposer>();
+            if (framingTransposer != null)
+            {
+                transposer = framingTransposer;
+            }
+        } 
     }
 
     void Update()
     {
-        transform.Translate(Vector3.forward * moveSpeed * Time.deltaTime);
+        if (!isPaused )
+        {
+            transform.Translate(Vector3.forward * moveSpeed * Time.deltaTime);
+        }
 
         // Verificar si hay un cubo adelante con un Raycast
         Vector3 rayOrigin = transform.position + Vector3.up * 0.5f; // Se eleva un poco para evitar colisiones erróneas
@@ -37,10 +55,10 @@ public class movimiento : MonoBehaviour
         RaycastHit hit;
         if (Physics.Raycast(rayOrigin, transform.forward, out hit, raycastDistance))
         {
-            Debug.Log("Saltando");
+            
             if (hit.collider.CompareTag("Cubo") && !isJumping)
             {
-                Debug.Log("Saltando Parte 2");
+               
                 Jump();
             }
             else if (hit.collider.CompareTag("Enemigo") && !isJumping) // Detección de enemigo
@@ -70,11 +88,8 @@ public class movimiento : MonoBehaviour
 
     void CheckIfFalling()
     {
-        // Lanza un Raycast desde el centro del personaje hacia abajo
-        //Vector3 groundCheckOrigin = transform.position + Vector3.up * 0.1f;
-        //Debug.DrawRay(groundCheckOrigin, Vector3.down * groundCheckDistance, Color.green);
 
-        //bool isGrounded = Physics.Raycast(groundCheckOrigin, Vector3.down, groundCheckDistance);
+        //Verifica si esta cayendo mediante raycast en los bordes del personaje
         float characterDepth = GetComponent<Collider>().bounds.extents.z;
 
         Vector3 frontCheckOrigin = transform.position + transform.forward * characterDepth + Vector3.up * 0.1f;
@@ -94,8 +109,6 @@ public class movimiento : MonoBehaviour
         }
         else
         {
-            animator.SetBool("EstaSaltando", false);
-            animator.SetBool("EstaCorriendo", true);
             Land();
         }
     }
@@ -103,89 +116,84 @@ public class movimiento : MonoBehaviour
     void Land()
     {
         isJumping = false;
-        //animator.SetBool("EstaSaltando", false);
-        //animator.SetBool("EstaCorriendo", true);
+        animator.SetBool("EstaSaltando", false);
+        if (!isPaused && animator.GetBool("EstaCaminando") == false) // Solo volver a correr si no está en pausa y no esta caminando
+        {
+            animator.SetBool("EstaCorriendo", true);
+        }
     }
-    //public float moveSpeed = 2f;
-    //public float jumpForce = 5f;
-    //public float enemyJumpMultiplier = 1.5f;
-    //public float groundCheckDistance = 0.3f;
 
-    //private bool isJumping = false;
-    //private bool isGrounded = true; // Para evitar saltos continuos
-    //private Rigidbody rb;
-    //private Animator animator;
+    private void OnTriggerExit(Collider other)
+    {
+        //Momento donde entra al bosque oscuro
+        if (other.CompareTag("TriggerZone"))
+        {
+            StartCoroutine(StopAndResume());
+        }
+    }
 
-    //void Start()
-    //{
-    //    rb = GetComponent<Rigidbody>();
-    //    animator = GetComponent<Animator>();
-    //    animator.SetBool("EstaCorriendo", true);
-    //}
+    private void OnTriggerEnter(Collider other)
+    {
+        //Momento donde empiezan los fantasmas
+        if (other.CompareTag("TriggerZone2"))
+        {
+            StartCoroutine(ChangeCamara());
+        }
+    }
 
-    //void Update()
-    //{
-    //    transform.Translate(Vector3.forward * moveSpeed * Time.deltaTime);
-    //    CheckIfFalling();
-    //}
+    IEnumerator ChangeCamara() {
+        if (transposer != null)
+        {
+            //Centrar la camara
+            float originalOffsetZ = transposer.m_TrackedObjectOffset.z; 
+            float targetOffsetZ = 0;
 
-    //void OnTriggerEnter(Collider other) // Se activa cuando entra en un trigger
-    //{
-    //    if (isGrounded && !isJumping) // Solo salta si está en el suelo y no está ya en el aire
-    //    {
-    //        if (other.CompareTag("Cubo"))
-    //        {
-    //            Jump();
-    //        }
-    //        else if (other.CompareTag("Enemigo"))
-    //        {
-    //            Jump(enemyJumpMultiplier);
-    //        }
-    //    }
-    //}
+            float elapsedTime = 0f;
+            float duration = 1f;  // Duración de la transición
 
-    //void Jump(float multiplier = 1f)
-    //{
-    //    isJumping = true;
-    //    isGrounded = false;
-    //    animator.SetBool("EstaSaltando", true);
-    //    animator.SetBool("EstaCorriendo", false);
+            while (elapsedTime < duration)
+            {
+                transposer.m_TrackedObjectOffset.z = Mathf.Lerp(originalOffsetZ, targetOffsetZ, elapsedTime / duration);
+                elapsedTime += Time.deltaTime;
+                yield return null;
+            }
+            transposer.m_TrackedObjectOffset.z = targetOffsetZ;
+        }
+    }
 
-    //    rb.velocity = new Vector3(rb.velocity.x, 0f, rb.velocity.z);
-    //    rb.AddForce(Vector3.up * jumpForce * multiplier, ForceMode.Impulse);
-    //}
+    IEnumerator StopAndResume()
+    {
+        //Empieza a caminar
+        moveSpeed = 1f;
+        animator.SetBool("EstaCorriendo", false);
+        animator.SetBool("EstaSaltando", false);
+        animator.SetBool("EstaCaminando", true);
+        yield return new WaitForSeconds(3f);
+        //Se detiene
+        isPaused = true;
+        animator.SetBool("EstaCaminando", false);
+        yield return new WaitForSeconds(1f);
+        //Empieza a caminar hacia atras
+        animator.SetBool("EstaCaminando", true);
+        float elapsedTime = 0f;
+        Vector3 startPosition = transform.position;
+        Vector3 targetPosition = startPosition - transform.forward * stepBackDistance;
 
-    //void CheckIfFalling()
-    //{
-    //    float characterDepth = GetComponent<Collider>().bounds.extents.z;
+        while (elapsedTime < stepBackDistance / stepBackSpeed)
+        {
+            transform.position = Vector3.Lerp(startPosition, targetPosition, (elapsedTime * stepBackSpeed) / stepBackDistance);
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+        //Para de caminar y se detiene un poco
+        transform.position = targetPosition;
+        animator.SetBool("EstaCaminando", false);
 
-    //    Vector3 frontCheckOrigin = transform.position + transform.forward * characterDepth + Vector3.up * 0.1f;
-    //    Vector3 backCheckOrigin = transform.position - transform.forward * characterDepth + Vector3.up * 0.1f;
-
-    //    Debug.DrawRay(frontCheckOrigin, Vector3.down * groundCheckDistance, Color.green);
-    //    Debug.DrawRay(backCheckOrigin, Vector3.down * groundCheckDistance, Color.green);
-
-    //    bool isGroundedFront = Physics.Raycast(frontCheckOrigin, Vector3.down, groundCheckDistance);
-    //    bool isGroundedBack = Physics.Raycast(backCheckOrigin, Vector3.down, groundCheckDistance);
-
-    //    isGrounded = isGroundedFront || isGroundedBack;
-
-    //    if (!isGrounded)
-    //    {
-    //        animator.SetBool("EstaSaltando", true);
-    //    }
-    //    else
-    //    {
-    //        animator.SetBool("EstaSaltando", false);
-    //        animator.SetBool("EstaCorriendo", true);
-    //        Land();
-    //    }
-    //}
-
-    //void Land()
-    //{
-    //    isJumping = false;
-    //    isGrounded = true;
-    //}
+        yield return new WaitForSeconds(1f);
+        //Vuelve a correr
+        animator.SetBool("EstaCorriendo", true);
+        isPaused = false;
+        moveSpeed = 2f;
+    }
 }
 

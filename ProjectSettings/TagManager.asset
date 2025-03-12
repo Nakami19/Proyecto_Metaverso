@@ -8,6 +8,8 @@ TagManager:
   - Enemigo
   - Suelo
   - Regreso
+  - TriggerZone
+  - TriggerZone2
   layers:
   - Default
   - TransparentFX
